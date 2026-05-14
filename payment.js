@@ -8,7 +8,7 @@ const poolManager = require('./pool');
 const { sweepToTreasury } = require('./wallet');
 const { stopPolling } = require('./poller');
 
-async function handlePayment(client, ticket, amount, method = 'On-chain') {
+async function handlePayment(client, ticket, amount, method = 'On-chain', txSignature = null) {
   const guild = client.guilds.cache.first();
   if (!guild) return;
 
@@ -16,7 +16,8 @@ async function handlePayment(client, ticket, amount, method = 'On-chain') {
 
   // Sweep received SOL to treasury (on-chain payments only)
   if (method === 'On-chain' && ticket.privateKey) {
-    await sweepToTreasury(ticket.privateKey, amount);
+    const sweepSig = await sweepToTreasury(ticket.privateKey, amount);
+    if (sweepSig && !txSignature) txSignature = sweepSig;
   }
 
   // 1. Update user record
@@ -48,18 +49,31 @@ async function handlePayment(client, ticket, amount, method = 'On-chain') {
     timestamp: new Date().toISOString(),
     method,
     walletAddress: method === 'Manual' ? 'Manual Credit' : ticket.walletAddress,
+    txSignature: txSignature || null,
   });
 
   // 4. Private admin log
   try {
     const logChannel = await client.channels.fetch(config.PRIVATE_LOG_CHANNEL);
-    await logChannel.send({
-      embeds: [embeds.privateLogEmbed(
-        discordUser, amount, user.lifetimeTotal,
-        method === 'Manual' ? 'Manual Credit' : ticket.walletAddress,
-        roleId, method
-      )],
-    });
+    const logEmbed = embeds.privateLogEmbed(
+      discordUser, amount, user.lifetimeTotal,
+      method === 'Manual' ? 'Manual Credit' : ticket.walletAddress,
+      roleId, method, txSignature
+    );
+
+    const components = [];
+    if (txSignature) {
+      components.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('View on Solscan')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://solscan.io/tx/${txSignature}`)
+        )
+      );
+    }
+
+    await logChannel.send({ embeds: [logEmbed], components });
   } catch (err) {
     console.error('[payment] Private log error:', err.message);
   }
@@ -71,20 +85,20 @@ async function handlePayment(client, ticket, amount, method = 'On-chain') {
       const ticketChannel = await client.channels.fetch(ticket.channelId).catch(() => null);
       if (ticketChannel) {
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`show_name_${userId}`).setLabel('👤 Show My Name').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId(`stay_anon_${userId}`).setLabel('🔒 Stay Anonymous').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId(`show_name_${userId}`).setLabel('Show My Name').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId(`stay_anon_${userId}`).setLabel('Stay Anonymous').setStyle(ButtonStyle.Primary),
         );
 
         const promptMsg = await ticketChannel.send({
-          content: '💬 Would you like your name shown on the public investment board?',
+          content: 'Would you like your name shown on the public investment board?',
           components: [row],
         });
 
         displayName = await waitForNameChoice(client, promptMsg, userId, discordUser.username, 10000);
 
         const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`show_name_${userId}`).setLabel('👤 Show My Name').setStyle(ButtonStyle.Secondary).setDisabled(true),
-          new ButtonBuilder().setCustomId(`stay_anon_${userId}`).setLabel('🔒 Stay Anonymous').setStyle(ButtonStyle.Secondary).setDisabled(true),
+          new ButtonBuilder().setCustomId(`show_name_${userId}`).setLabel('Show My Name').setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId(`stay_anon_${userId}`).setLabel('Stay Anonymous').setStyle(ButtonStyle.Primary).setDisabled(true),
         );
         await promptMsg.edit({ components: [disabledRow] }).catch(() => {});
 
@@ -106,7 +120,21 @@ async function handlePayment(client, ticket, amount, method = 'On-chain') {
   // 7. Public investment embed
   try {
     const pubChannel = await client.channels.fetch(config.PUBLIC_INVESTMENTS_CHANNEL);
-    await pubChannel.send({ embeds: [embeds.publicInvestmentEmbed(displayName, amount, pool)] });
+    const pubEmbed = embeds.publicInvestmentEmbed(displayName, amount, pool, txSignature);
+
+    const components = [];
+    if (txSignature) {
+      components.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('View on Solscan')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://solscan.io/tx/${txSignature}`)
+        )
+      );
+    }
+
+    await pubChannel.send({ embeds: [pubEmbed], components });
   } catch (err) {
     console.error('[payment] Public embed error:', err.message);
   }
