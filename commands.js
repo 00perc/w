@@ -79,7 +79,7 @@ async function handleCommand(interaction) {
     const target = interaction.options.getNumber('target');
     const existing = data.getPool();
     if (existing) {
-      return interaction.editReply({ content: `❌ A pool is already active (${existing.current}/${existing.target} SOL).` });
+      return interaction.editReply({ content: `A pool is already active (${existing.current}/${existing.target} SOL).` });
     }
     const pool = { target, current: 0, contributors: [], startTime: new Date().toISOString() };
     data.savePool(pool);
@@ -87,11 +87,11 @@ async function handleCommand(interaction) {
     try {
       const pubChannel = await interaction.client.channels.fetch(config.PUBLIC_INVESTMENTS_CHANNEL);
       const announceEmbed = new EmbedBuilder()
-        .setColor(config.COLOR_PRIMARY)
-        .setTitle('🏊 New Investment Pool Opened!')
+        .setColor(0x5865F2)
+        .setTitle('New Investment Pool')
         .addFields(
-          { name: '🎯 Target', value: `${target} SOL` },
-          { name: '📊 Progress', value: embeds.poolProgressBar(0, target) },
+          { name: 'Target', value: `${target} SOL` },
+          { name: 'Progress', value: embeds.poolProgressBar(0, target) },
         )
         .setFooter({ text: `Powered by ${config.SERVER_NAME}` })
         .setTimestamp();
@@ -100,14 +100,14 @@ async function handleCommand(interaction) {
       console.error('[commands] Pool announce error:', err.message);
     }
 
-    return interaction.editReply({ content: `✅ Pool started with a target of **${target} SOL**.` });
+    return interaction.editReply({ content: `Pool started with a target of **${target} SOL**.` });
   }
 
   if (commandName === 'credit') {
     await interaction.deferReply({ ephemeral: true });
     const amount = interaction.options.getNumber('amount');
     const pool = data.getPool();
-    if (!pool) return interaction.editReply({ content: '❌ No active pool. Use `/startpool` first.' });
+    if (!pool) return interaction.editReply({ content: 'No active pool. Use `/startpool` first.' });
 
     pool.current = (pool.current || 0) + amount;
     data.savePool(pool);
@@ -133,7 +133,7 @@ async function handleCommand(interaction) {
     }
 
     const bar = embeds.poolProgressBar(pool.current, pool.target);
-    return interaction.editReply({ content: `✅ Credited **${amount} SOL** to pool.\n📊 ${bar}` });
+    return interaction.editReply({ content: `Credited **${amount} SOL** to pool.\n${bar}` });
   }
 
   if (commandName === 'addbalance') {
@@ -141,7 +141,6 @@ async function handleCommand(interaction) {
     const targetUser = interaction.options.getUser('user');
     const amount = interaction.options.getNumber('amount');
 
-    // Build a minimal ticket object — manual credits skip show/hide and ticket-close
     const realTicket = data.getTicket(targetUser.id);
     const usedTicket = realTicket || {
       userId: targetUser.id,
@@ -153,7 +152,7 @@ async function handleCommand(interaction) {
     };
 
     await handlePayment(interaction.client, usedTicket, amount, 'Manual');
-    return interaction.editReply({ content: `✅ Credited **${amount} SOL** to ${targetUser.tag}.` });
+    return interaction.editReply({ content: `Credited **${amount} SOL** to ${targetUser.tag}.` });
   }
 
   if (commandName === 'investments') {
@@ -169,10 +168,10 @@ async function handleCommand(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const d = data.read();
     const ticket = d.tickets.find(t => t.channelId === interaction.channelId && t.status === 'open');
-    if (!ticket) return interaction.editReply({ content: '❌ This is not an active ticket channel.' });
+    if (!ticket) return interaction.editReply({ content: 'This is not an active ticket channel.' });
     stopPolling(ticket.userId);
     await forceCloseTicket(interaction.client, ticket, 'admin-closed');
-    await interaction.editReply({ content: '✅ Ticket closed.' }).catch(() => {});
+    await interaction.editReply({ content: 'Ticket closed.' }).catch(() => {});
   }
 
   if (commandName === 'resetticket') {
@@ -180,10 +179,10 @@ async function handleCommand(interaction) {
     const targetUser = interaction.options.getUser('user');
     const d = data.read();
     const idx = d.tickets.findIndex(t => t.userId === targetUser.id && t.status === 'open');
-    if (idx === -1) return interaction.editReply({ content: `❌ ${targetUser.tag} has no open ticket.` });
+    if (idx === -1) return interaction.editReply({ content: `${targetUser.tag} has no open ticket.` });
     d.tickets[idx].status = 'reset';
     data.write(d);
-    return interaction.editReply({ content: `✅ Reset ticket for ${targetUser.tag}. They can now open a new one.` });
+    return interaction.editReply({ content: `Reset ticket for ${targetUser.tag}.` });
   }
 }
 
