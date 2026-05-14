@@ -24,12 +24,10 @@ async function verifyOrClearTicket(client, userId, type) {
   const existing = data.getTicket(userId, type);
   if (!existing) return null;
 
-  // Check if channel still actually exists — admin may have deleted it manually
   try {
     const channel = await client.channels.fetch(existing.channelId);
-    if (channel) return existing; // Still exists, block the user
+    if (channel) return existing;
   } catch {
-    // Channel not found — clear the stale record and allow a new ticket
     data.closeTicket(userId, 'stale', type);
     console.log(`[tickets] Stale ${type} ticket cleared for ${userId}`);
   }
@@ -40,11 +38,10 @@ async function createTicket(interaction, type) {
   const user = interaction.user;
   const guild = interaction.guild;
 
-  // Recheck: verify channel still exists, clear stale records if not
   const existing = await verifyOrClearTicket(interaction.client, user.id, type);
   if (existing) {
     return interaction.reply({
-      content: `❌ You already have an open ${type} ticket: <#${existing.channelId}>`,
+      content: `You already have an open ${type} ticket: <#${existing.channelId}>`,
       ephemeral: true,
     });
   }
@@ -90,10 +87,10 @@ async function createTicket(interaction, type) {
       startPolling(interaction.client, ticket);
     }
 
-    await interaction.editReply({ content: `✅ Your ${type} ticket has been created: <#${channel.id}>` });
+    await interaction.editReply({ content: `Your ${type} ticket has been created: <#${channel.id}>` });
   } catch (err) {
     console.error(`[tickets] createTicket (${type}) error:`, err);
-    await interaction.editReply({ content: '❌ Failed to create ticket. Please try again.' });
+    await interaction.editReply({ content: 'Failed to create ticket. Please try again.' });
   }
 }
 
@@ -110,7 +107,6 @@ async function handleInvestTicket(guild, channel, user, ticket) {
     files: [qrAttachment],
   });
 
-  // Recovery info to admin channel
   const adminChannel = await guild.channels.fetch(config.ADMIN_KEY_CHANNEL).catch(() => null);
   if (adminChannel) {
     await adminChannel.send({ embeds: [embeds.adminKeyEmbed(user, channel.id, wallet.address, wallet.privateKey)] });
@@ -119,8 +115,8 @@ async function handleInvestTicket(guild, channel, user, ticket) {
 
 async function handleSupportTicket(channel, user) {
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle('🛠️ Support Ticket Opened')
+    .setColor(0x5865F2)
+    .setTitle('Support Ticket')
     .setDescription(`<@${user.id}> — a support member will be with you shortly. Describe your issue below.`)
     .setTimestamp();
 
@@ -144,7 +140,6 @@ async function forceCloseTicket(client, ticket, reason = 'closed') {
 
     data.closeTicket(ticket.userId, reason, ticket.type);
 
-    // Send closed notice in the ticket channel itself
     try {
       const closedChannel = await guild.channels.fetch(ticket.channelId).catch(() => null);
       if (closedChannel) {
