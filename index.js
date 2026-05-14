@@ -59,20 +59,19 @@ async function ensureTicketMessage() {
   }
 
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle('🎫 Investment Center')
+    .setColor(0x5865F2)
+    .setTitle('Investment Center')
     .setDescription(
-      '**Ready to invest or need support?**\n\n' +
       'Click the buttons below to open a private ticket.\n\n' +
-      '💎 **Invest** — Open a private ticket to invest SOL\n' +
-      '🛠️ **Support** — Open a support ticket'
+      '**Invest** — Open a private ticket to invest SOL\n' +
+      '**Support** — Open a support ticket'
     )
     .setFooter({ text: `Powered by ${config.SERVER_NAME}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('open_invest_ticket').setLabel('🎫 Invest').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('open_support_ticket').setLabel('🛠️ Support').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('open_invest_ticket').setLabel('Invest').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('open_support_ticket').setLabel('Support').setStyle(ButtonStyle.Primary),
   );
 
   const msg = await channel.send({ embeds: [embed], components: [row] });
@@ -105,7 +104,7 @@ client.on('interactionCreate', async (interaction) => {
   } catch (err) {
     console.error('[bot] Interaction error:', err);
     try {
-      const errMsg = { content: '❌ An error occurred. Please try again.', ephemeral: true };
+      const errMsg = { content: 'An error occurred. Please try again.', ephemeral: true };
       if (interaction.deferred) await interaction.editReply(errMsg).catch(() => {});
       else if (!interaction.replied) await interaction.reply(errMsg).catch(() => {});
     } catch {}
